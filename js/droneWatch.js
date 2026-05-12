@@ -72,7 +72,7 @@ class DroneBody {
     constructor() {
         this.group = new THREE.Group();
         
-        const bodyGeometry = new THREE.BoxGeometry(6, 2, 6);
+        const bodyGeometry = new THREE.BoxGeometry(6.5, 2, 6.5);
         const bodyMaterial = new THREE.MeshBasicMaterial({ color: 0x000000 });
         const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
         body.position.set(0, 0.5, 0);
@@ -145,6 +145,7 @@ class DroneWatch {
         this.group = new THREE.Group();
 
         const rotorArm1 = new RotorArm(-4, 0.5, 4, -Math.PI / 4);
+        //const rotorArm1 = new RotorArm(1.5, 0, -1.5, -Math.PI / 4); //coordenadas para o braço estar "escondido"
         this.group.add(rotorArm1.getMesh());
         const rotorArm2 = new RotorArm(4, 0.5, 4, Math.PI / 4);
         this.group.add(rotorArm2.getMesh());
