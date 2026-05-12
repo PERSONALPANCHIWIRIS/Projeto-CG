@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { OBJLoader } from "https://cdn.jsdelivr.net/npm/three@v0.176.0/examples/jsm/loaders/OBJLoader.js";
 
 let camera, scene, renderer;
 
@@ -9,8 +10,11 @@ let drone, ballon, cube;
   let cameraHelpers = [];
   let cameraIndex = 0;
   let helpersVisible = false;
+  let ballonPositions = [[0, 0, -20], [-20, 0, -20], [-10, 20, -10], [5, -20, 5]];
 
   let axesHelpers = [];
+
+  let wireframeMode = false;
 
 class RotorArm {
 
@@ -23,20 +27,20 @@ class RotorArm {
         const rotorArm = new THREE.Mesh(armGeometry, armMaterial);
         this.group.add(rotorArm);
     
-        const boxGeometry = new THREE.TorusGeometry(2.5, 0.5, 32, 64);
+        const boxGeometry = new THREE.TorusGeometry(2.5, 0.5, 8, 16);
         const boxMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff });
         const rotorBox = new THREE.Mesh(boxGeometry, boxMaterial);
         rotorBox.rotation.x = Math.PI / 2;
         rotorBox.position.set(0, 0, 2);
         this.group.add(rotorBox);
 
-        const rotorGeometry = new THREE.CylinderGeometry(0.5, 1, 0.5, 32);
+        const rotorGeometry = new THREE.CylinderGeometry(0.5, 1, 0.5, 8);
         const rotorMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff });
         const rotor = new THREE.Mesh(rotorGeometry, rotorMaterial);
         rotor.position.set(0, 0, 2);
         this.group.add(rotor);
 
-        const bladeSupportGeometry = new THREE.CylinderGeometry(0.2, 0.25, 0.2, 32);
+        const bladeSupportGeometry = new THREE.CylinderGeometry(0.2, 0.25, 0.2, 8);
         const bladeSupportMaterial = new THREE.MeshBasicMaterial({ color: 0xff00ff });
         const bladeSupport = new THREE.Mesh(bladeSupportGeometry, bladeSupportMaterial);
         bladeSupport.position.set(0, 0.625, 2);
@@ -97,7 +101,7 @@ class DroneBody {
         button.position.set(0, 0.525, 3);
         this.group.add(button);
 
-        const cameraGeometry = new THREE.CylinderGeometry(0.3, 0.3, 2, 32);
+        const cameraGeometry = new THREE.CylinderGeometry(0.3, 0.3, 2, 8);
         const cameraMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff });
         const camera = new THREE.Mesh(cameraGeometry, cameraMaterial);
         camera.position.set(0, 0.525, -3);
@@ -106,6 +110,32 @@ class DroneBody {
         const axesHelper = new THREE.AxesHelper(3);
         this.group.add(axesHelper);
         axesHelpers.push(axesHelper);
+
+        this.loadStrap();
+    }
+
+    loadStrap() {
+        const objLoader = new OBJLoader();
+        const textureLoader = new THREE.TextureLoader();
+
+        objLoader.load(
+            './leather_strap_bracelet_v2_L3.123c2ab513b6-f2fc-4b48-8894-33ce6a389bc5/13096_leather_strap_bracelet_v2_L3.obj',
+            (object) => {
+                object.traverse((child) => {
+                    if (child instanceof THREE.Mesh) {
+                        child.material = new THREE.MeshBasicMaterial({ color: 0xffff00});
+                    }
+                });
+
+                //Posicionar e adicionar
+                object.scale.set(0.4, 0.4, 0.4);
+                object.position.set(-0.9, -3, 0);
+                object.rotation.y = Math.PI / 2;
+                this.group.add(object);
+            },
+            undefined,
+            (error) => console.error('Error loading bracelet:', error)
+        );
     }
 }
 
@@ -126,10 +156,49 @@ class DroneWatch {
         const droneBody = new DroneBody();
         this.group.add(droneBody.group);
 
-        axesHelpers.forEach((helper) => {
-            helper.visible = helpersVisible;
-        });
     }
+}
+
+class Ballon {
+    constructor() {
+        this.group = new THREE.Group();
+
+        const ballonGeometry = new THREE.SphereGeometry(2.5, 16, 8);
+        const ballonMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+        const ballon = new THREE.Mesh(ballonGeometry, ballonMaterial);
+        ballon.position.y = 7;
+        this.group.add(ballon);
+
+        const knotGeometry = new THREE.CylinderGeometry(0.0, 0.5, 1, 8);
+        const knotMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+        const knot = new THREE.Mesh(knotGeometry, knotMaterial);
+        knot.scale.set(0.5, 0.5, 0.5);
+        knot.position.y = 4.25;
+        this.group.add(knot);
+
+        const stringGeometry = new THREE.CylinderGeometry(0.1, 0.1, 4, 8);
+        const stringMaterial = new THREE.MeshBasicMaterial({ color: 0x000000 });
+        const string = new THREE.Mesh(stringGeometry, stringMaterial);
+        string.position.y = 2;
+        this.group.add(string);
+
+        const axesHelper = new THREE.AxesHelper(3);
+        this.group.add(axesHelper);
+        axesHelpers.push(axesHelper);
+    }
+
+    getMesh() {
+        return this.group;
+    }
+}
+
+function toggleWireframe() {
+    wireframeMode = !wireframeMode;
+    scene.traverse((object) => {
+        if (object instanceof THREE.Mesh) {
+            object.material.wireframe = wireframeMode;
+        }
+    });
 }
 
 function createCameras() {
@@ -179,10 +248,10 @@ function createCameras() {
 
     //4 - ortogonal (Fixa)
     const cameraOrtho = new THREE.OrthographicCamera(
-        -orthoSize * aspectRatio,
-        orthoSize * aspectRatio,
-        orthoSize,
-        -orthoSize,
+        -orthoSize * aspectRatio *2,
+        orthoSize * aspectRatio *2, //*2 para entrarem os objetos todos
+        orthoSize *2,
+        -orthoSize *2,
         0.1,
         1000
     );
@@ -234,6 +303,10 @@ function handleKeyPress(event) {
     axesHelpers.forEach((helper) => {
       helper.visible = helpersVisible;
     });
+  }
+
+  if (key === "7") {
+    toggleWireframe();
   }
 }
 
@@ -289,7 +362,21 @@ function init() {
     //scene.add(cube);
 
     const droneWatch = new DroneWatch();
+    
+    const ballon = new Ballon();  
+
     scene.add(droneWatch.group);
+
+    for (let i = 0; i < 4; i++) {
+        const [x, y, z] = ballonPositions[i];
+        const newBallon = new Ballon();
+        newBallon.group.position.set(x, y, z);
+        scene.add(newBallon.group);
+    }
+
+    axesHelpers.forEach((helper) => {
+        helper.visible = helpersVisible;
+    });
     
     animate();
 

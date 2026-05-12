@@ -1,0 +1,28 @@
+# 3ds Max Wavefront OBJ Exporter v0.97b - (c)2007 guruware
+# File Created: 18.01.2012 12:28:33
+
+newmtl leather_strap_bracelet_2
+	Ns 65.0000
+	Ni 1.5000
+	d 1.0000
+	Tr 0.0000
+	Tf 1.0000 1.0000 1.0000 
+	illum 2
+	Ka 0.3255 0.2863 0.2157
+	Kd 0.3255 0.2863 0.2157
+	Ks 0.5324 0.4941 0.2824
+	Ke 0.0000 0.0000 0.0000
+
+newmtl leather_strap_bracelet_v1
+	Ns 49.0000
+	Ni 1.5000
+	d 1.0000
+	Tr 0.0000
+	Tf 1.0000 1.0000 1.0000 
+	illum 2
+	Ka 1.0000 1.0000 1.0000
+	Kd 1.0000 1.0000 1.0000
+	Ks 0.3600 0.3600 0.3600
+	Ke 0.0000 0.0000 0.0000
+	map_Ka leather_strap_bracelet_diffuse.jpg
+	map_Kd leather_strap_bracelet_diffuse.jpg
