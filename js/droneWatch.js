@@ -2,7 +2,7 @@ import * as THREE from "three";
 
 let camera, scene, renderer;
 
-let drone, ballon;
+let drone, ballon, cube;
 
   let cameras = [];
   let cameraNames = [ "lateral", "frontal", "top", "ortogonal", "perspective", "mobile"];
@@ -85,6 +85,7 @@ function createCameras() {
     //Adicionar CameraHelpers para cada camara
     cameras.forEach((cam) => {
         const helper = new THREE.CameraHelper(cam);
+        helper.visible = helpersVisible;
         scene.add(helper);
         cameraHelpers.push(helper);
     });
@@ -96,10 +97,9 @@ function handleKeyPress(event) {
 
   //Alternar câmaras
   if (key >= "1" && key <= "6") {
-    const cameraIndex = parseInt(key) - 1;
-    if (cameraIndex < cameras.length) {
-      cameraIndex = cameraIndex;
-      camera = cameras[cameraIndex];
+    const newIndex = parseInt(key) - 1;
+    if (newIndex < cameras.length) {
+      cameraIndex = newIndex;
     }
   }
 
@@ -110,6 +110,11 @@ function handleKeyPress(event) {
       helper.visible = helpersVisible;
     });
   }
+}
+
+function update() {
+  //Atualizar a camara
+  camera = cameras[cameraIndex];
 }
 
 function onResize() {
@@ -155,7 +160,7 @@ function init() {
     //teste
     const geometry = new THREE.BoxGeometry(10, 10, 10);
     const material = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
-    const cube = new THREE.Mesh(geometry, material);
+    cube = new THREE.Mesh(geometry, material);
     scene.add(cube);
 
     animate();
@@ -164,6 +169,7 @@ function init() {
 
 function animate() {
   requestAnimationFrame(animate);
+  update();
   renderer.render(scene, camera);
 }
 
