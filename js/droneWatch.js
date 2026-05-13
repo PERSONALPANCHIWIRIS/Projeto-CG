@@ -32,6 +32,11 @@ let drone, ballon, cube;
     max: Math.PI / 6
   };
 
+  let boomAnimation = false;
+  let activeBallons = [];
+  let destroyedBallons = [];   
+  const ANIMATION_DURATION = 60; 
+
 class RotorArm {
 
     constructor(x, y, z, rotation, hX, hY, hZ) {
@@ -67,6 +72,12 @@ class RotorArm {
         const blade = new THREE.Mesh(bladeGeometry, bladeMaterial);
         blade.position.set(0, 0.625, 2);
         this.group.add(blade);
+
+        this.collisionGeometry = new THREE.SphereGeometry(3, 8, 8);
+        this.collisionMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0});
+        this.collisionSphere = new THREE.Mesh(this.collisionGeometry, this.collisionMaterial);
+        this.collisionSphere.position.set(0, 0, 2); //Com o toro
+        this.group.add(this.collisionSphere);
 
         //começamos com a posição ao hidden
         this.group.position.set(x, y, z);
@@ -193,23 +204,31 @@ class Ballon {
         this.group = new THREE.Group();
 
         const ballonGeometry = new THREE.SphereGeometry(2.5, 16, 8);
-        const ballonMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+        const ballonMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 , transparent: true, opacity: 1});
         const ballon = new THREE.Mesh(ballonGeometry, ballonMaterial);
         ballon.position.y = 7;
         this.group.add(ballon);
 
         const knotGeometry = new THREE.CylinderGeometry(0.0, 0.5, 1, 8);
-        const knotMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+        const knotMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 , transparent: true, opacity: 1});
         const knot = new THREE.Mesh(knotGeometry, knotMaterial);
         knot.scale.set(0.5, 0.5, 0.5);
         knot.position.y = 4.25;
         this.group.add(knot);
 
         const stringGeometry = new THREE.CylinderGeometry(0.1, 0.1, 4, 8);
-        const stringMaterial = new THREE.MeshBasicMaterial({ color: 0x000000 });
+        const stringMaterial = new THREE.MeshBasicMaterial({ color: 0x000000 , transparent: true, opacity: 1});
         const string = new THREE.Mesh(stringGeometry, stringMaterial);
         string.position.y = 2;
         this.group.add(string);
+
+        this.collisionGeometry = new THREE.SphereGeometry(2.5, 8, 8);
+        this.collisionMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0});
+        this.collisionSphere = new THREE.Mesh(this.collisionGeometry, this.collisionMaterial);
+        this.collisionSphere.position.y = 7;
+        this.group.add(this.collisionSphere);
+
+        this.frame = 0; //Frame atual da animação de destruição
 
         const axesHelper = new THREE.AxesHelper(3);
         this.group.add(axesHelper);
@@ -313,6 +332,8 @@ function createCameras() {
 }
 
 function handleKeyPress(event) {
+  if (boomAnimation) return; //Ignorar input durante a animação de explosão
+
   const key = event.key.toLowerCase();
 
   //Alternar câmaras
@@ -348,11 +369,64 @@ function handleKeyPress(event) {
 
 }
 
+function detectCollisions() {
+  for (let i = activeBallons.length - 1; i >= 0; i--) {
+    const ballon = activeBallons[i];
+    
+    for (const rotorArm of rotorArms) {
+      const rotorPos = new THREE.Vector3();
+      rotorArm.collisionSphere.getWorldPosition(rotorPos);
+      
+      const ballonPos = new THREE.Vector3();
+      ballon.collisionSphere.getWorldPosition(ballonPos);
+      
+      const distance = rotorPos.distanceTo(ballonPos);
+      const collisionDistance = 5.5; // 3 (rotor) + 2.5 (balloon)
+      
+      if (distance < collisionDistance) {
+        boomAnimation = true;
+        activeBallons.splice(i, 1);
+        destroyedBallons.push(ballon);
+        break;
+      }
+    }
+  }
+}
+
+function ballonDestroyAnimation(ballon) {
+    ballon.frame++;
+    const animationProgress = ballon.frame / ANIMATION_DURATION;
+
+    if (ballon.frame <= ANIMATION_DURATION) {
+        ballon.group.traverse((child) => {
+        if (child instanceof THREE.Mesh) {
+            child.material.opacity = 1 - animationProgress;
+        }
+       });
+    }
+    else {
+        scene.remove(ballon.group);
+        const index = destroyedBallons.indexOf(ballon);
+        if (index > -1) {
+            destroyedBallons.splice(index, 1);
+        }
+        boomAnimation = false;
+    }
+        
+}
+
 function update() {
+
   //Atualizar a camara
   camera = cameras[cameraIndex];
 
-  if (progress > 0.99) {
+  detectCollisions();
+
+  for (let i = destroyedBallons.length - 1; i >= 0; i--) {
+    ballonDestroyAnimation(destroyedBallons[i]);
+  }
+
+  if (progress > 0.99 && !boomAnimation) {
     const movementVector = new THREE.Vector3(0, 0, 0);
     const jointRotation = {x: 0, y: 0};
 
@@ -470,6 +544,7 @@ function init() {
         const [x, y, z] = ballonPositions[i];
         const newBallon = new Ballon();
         newBallon.group.position.set(x, y, z);
+        activeBallons.push(newBallon);
         scene.add(newBallon.group);
     }
 
