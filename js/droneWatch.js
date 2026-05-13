@@ -6,7 +6,6 @@ let camera, scene, renderer;
 let drone, ballon, cube;
 
   let cameras = [];
-  let cameraNames = [ "lateral", "frontal", "top", "ortogonal", "perspective", "mobile"];
   let cameraHelpers = [];
   let cameraIndex = 0;
   let helpersVisible = false;
@@ -17,10 +16,21 @@ let drone, ballon, cube;
   let wireframeMode = false;
 
   let extended = false;
-  let rotationSpeed = 0.3; 
-  let extensionSpeed = 0.02; ;
+  let rotationSpeed = 0.2; 
+  let extensionSpeed = 0.02;
   let rotorArms = []
   let progress = 0; // Progresso da extensão (0 a 1)
+
+  let moveSpeed = 0.2;
+  let droneWatchGroup; 
+  let movementKeys = ["a", "d", "w", "s", "u", "j", "i", "k", "o", "l"];
+
+  let keysPressed = {};
+
+  const pitchDegrees = {
+    min: -Math.PI / 6,
+    max: Math.PI / 6
+  };
 
 class RotorArm {
 
@@ -141,7 +151,8 @@ class DroneBody {
                 object.scale.set(0.4, 0.4, 0.4);
                 object.position.set(-0.9, -3, 0);
                 object.rotation.y = Math.PI / 2;
-                this.group.add(object);
+                //this.group.add(object);
+                scene.add(object);
             },
             undefined,
             (error) => console.error('Error loading bracelet:', error)
@@ -331,12 +342,50 @@ function handleKeyPress(event) {
     extended = !extended;
   }
 
+  if (movementKeys.includes(key)) {
+    keysPressed[key] = true;
+  }
+
 }
 
 function update() {
   //Atualizar a camara
   camera = cameras[cameraIndex];
 
+  if (progress > 0.99) {
+    const movementVector = new THREE.Vector3(0, 0, 0);
+    const jointRotation = {x: 0, y: 0};
+
+    if (keysPressed['a']) movementVector.x -= moveSpeed;
+    if (keysPressed['d']) movementVector.x += moveSpeed;
+    if (keysPressed['w']) movementVector.y += moveSpeed;
+    if (keysPressed['s']) movementVector.y -= moveSpeed;
+    if (keysPressed['j']) movementVector.z += moveSpeed;
+    if (keysPressed['u']) movementVector.z -= moveSpeed;
+
+    if (keysPressed['i']) jointRotation.y = rotationSpeed - 0.15;
+    if (keysPressed['k']) jointRotation.y = -(rotationSpeed - 0.15);
+
+    if (keysPressed['o']) jointRotation.x = rotationSpeed - 0.17;
+    if (keysPressed['l']) jointRotation.x = -(rotationSpeed - 0.17);
+
+    droneWatchGroup.position.add(movementVector);
+
+    droneWatchGroup.rotation.y += jointRotation.y;
+
+    //Limitar o pitch
+    const currentPitch = droneWatchGroup.rotation.x;
+    if (currentPitch + jointRotation.x > pitchDegrees.max) {
+      droneWatchGroup.rotation.x = pitchDegrees.max;
+    } else if (currentPitch + jointRotation.x < pitchDegrees.min) {
+      droneWatchGroup.rotation.x = pitchDegrees.min;
+    } else {
+      droneWatchGroup.rotation.x += jointRotation.x;
+    }
+
+  }
+
+  //EXTENSAO DOS BRACOS
   //Atualizar progresso (0 a 1)
   if (extended && progress < 1) {
     progress += extensionSpeed;
@@ -401,15 +450,17 @@ function init() {
     camera = cameras[cameraIndex];
 
     window.addEventListener("keydown", handleKeyPress);
+
+    window.addEventListener("keyup", (event) => { 
+        if (movementKeys.includes(event.key.toLowerCase())) { 
+            keysPressed[event.key.toLowerCase()] = false;
+        } 
+    });
+
     window.addEventListener("resize", onResize);
 
-    //teste
-    //const geometry = new THREE.BoxGeometry(10, 10, 10);
-    //const material = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
-    //cube = new THREE.Mesh(geometry, material);
-    //scene.add(cube);
-
     const droneWatch = new DroneWatch();
+    droneWatchGroup = droneWatch.group;
     
     const ballon = new Ballon();  
 
