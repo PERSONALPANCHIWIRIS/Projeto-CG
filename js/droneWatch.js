@@ -16,13 +16,19 @@ let drone, ballon, cube;
 
   let wireframeMode = false;
 
+  let extended = false;
+  let rotationSpeed = 0.3; 
+  let extensionSpeed = 0.02; ;
+  let rotorArms = []
+  let progress = 0; // Progresso da extensão (0 a 1)
+
 class RotorArm {
 
-    constructor(x, y, z, rotation) {
+    constructor(x, y, z, rotation, hX, hY, hZ) {
 
         this.group = new THREE.Group();
 
-        const armGeometry = new THREE.BoxGeometry(1, 1, 4);
+        const armGeometry = new THREE.BoxGeometry(1, 1, 3.8);
         const armMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff });
         const rotorArm = new THREE.Mesh(armGeometry, armMaterial);
         this.group.add(rotorArm);
@@ -52,8 +58,12 @@ class RotorArm {
         blade.position.set(0, 0.625, 2);
         this.group.add(blade);
 
+        //começamos com a posição ao hidden
         this.group.position.set(x, y, z);
         this.group.rotation.y = rotation;
+
+        this.extendedPosition = { x: hX, y: hY, z: hZ };
+        this.hiddenPosition = { x: x, y: y, z: z };
 
         //AxesHelper
         const axesHelper = new THREE.AxesHelper(3);
@@ -144,15 +154,22 @@ class DroneWatch {
     constructor() {
         this.group = new THREE.Group();
 
-        const rotorArm1 = new RotorArm(-4, 0.5, 4, -Math.PI / 4);
-        //const rotorArm1 = new RotorArm(1.5, 0, -1.5, -Math.PI / 4); //coordenadas para o braço estar "escondido"
+        //const rotorArm1 = new RotorArm(-4, 0.5, 4, -Math.PI / 4);
+        const rotorArm1 = new RotorArm(1.5, 0, -1.5, -Math.PI / 4, -4, 0.5, 4); //coordenadas para o braço estar "escondido"
         this.group.add(rotorArm1.getMesh());
-        const rotorArm2 = new RotorArm(4, 0.5, 4, Math.PI / 4);
+        rotorArms.push(rotorArm1);
+        //const rotorArm2 = new RotorArm(4, 0.5, 4, Math.PI / 4);
+        const rotorArm2 = new RotorArm(-1.5, 0, -1.5, Math.PI / 4, 4, 0.5, 4); 
         this.group.add(rotorArm2.getMesh());
-        const rotorArm3 = new RotorArm(-4, 0.5, -4, -Math.PI * 3 / 4);
+        rotorArms.push(rotorArm2);
+        //const rotorArm3 = new RotorArm(-4, 0.5, -4, -Math.PI * 3 / 4);
+        const rotorArm3 = new RotorArm(1.5, 0, 1.5, -Math.PI * 3 / 4, -4, 0.5, -4);
         this.group.add(rotorArm3.getMesh());
-        const rotorArm4 = new RotorArm(4, 0.5, -4, Math.PI * 3 / 4);
+        rotorArms.push(rotorArm3);
+        //const rotorArm4 = new RotorArm(4, 0.5, -4, Math.PI * 3 / 4);
+        const rotorArm4 = new RotorArm(-1.5, 0, 1.5, Math.PI * 3 / 4, 4, 0.5, -4);
         this.group.add(rotorArm4.getMesh());
+        rotorArms.push(rotorArm4);
 
         const droneBody = new DroneBody();
         this.group.add(droneBody.group);
@@ -309,11 +326,41 @@ function handleKeyPress(event) {
   if (key === "7") {
     toggleWireframe();
   }
+
+  if (key === "q") {
+    extended = !extended;
+  }
+
 }
 
 function update() {
   //Atualizar a camara
   camera = cameras[cameraIndex];
+
+  //Atualizar progresso (0 a 1)
+  if (extended && progress < 1) {
+    progress += extensionSpeed;
+    progress = Math.min(1, progress); //Nao passar do cap de 1
+  } else if (!extended && progress > 0) {
+    progress -= extensionSpeed;
+    progress = Math.max(0, progress); //Nao passar do cap de 0
+  }
+
+  rotorArms.forEach((arm) => {
+    const newPos = new THREE.Vector3();
+    newPos.lerpVectors(arm.hiddenPosition, arm.extendedPosition, progress);
+    arm.group.position.copy(newPos);
+
+    //Rotar hélices quando totalmente estendido
+    if (progress > 0.99) {
+      arm.group.children.forEach((child) => {
+        if (child.material && child.material.color.getHex() === 0x000000) { 
+          child.rotation.y += rotationSpeed;
+        }
+      });
+    }
+  });
+
 }
 
 function onResize() {
