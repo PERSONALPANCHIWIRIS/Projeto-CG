@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { OBJLoader } from "https://cdn.jsdelivr.net/npm/three@v0.176.0/examples/jsm/loaders/OBJLoader.js";
+import Stats from "stats.js";
 
 let camera, scene, renderer;
 
@@ -36,6 +37,10 @@ let drone, ballon, cube;
   let activeBallons = [];
   let destroyedBallons = [];   
   const ANIMATION_DURATION = 60; 
+
+  let stats;
+
+  const keyMap = new Map();
 
 class RotorArm {
 
@@ -338,6 +343,7 @@ function handleKeyPress(event) {
 
   //Alternar câmaras
   if (key >= "1" && key <= "6") {
+    setKeyVisual(key, true);
     const newIndex = parseInt(key) - 1;
     if (newIndex < cameras.length) {
       cameraIndex = newIndex;
@@ -346,6 +352,7 @@ function handleKeyPress(event) {
 
   //'h' para mostrar/ocultar CameraHelpers
   if (key === "h") {
+    setKeyVisual('h', true);
     helpersVisible = !helpersVisible;
     cameraHelpers.forEach((helper) => {
       helper.visible = helpersVisible;
@@ -356,15 +363,18 @@ function handleKeyPress(event) {
   }
 
   if (key === "7") {
+    setKeyVisual('7', true);
     toggleWireframe();
   }
 
   if (key === "q") {
+    setKeyVisual('q', true);
     extended = !extended;
   }
 
   if (movementKeys.includes(key)) {
     keysPressed[key] = true;
+    setKeyVisual(key, true);
   }
 
 }
@@ -414,6 +424,25 @@ function ballonDestroyAnimation(ballon) {
     }
         
 }
+
+function buildKeyMap() {
+  document.querySelectorAll(".key").forEach((obj) => {
+    keyMap.set(obj.textContent.toLowerCase(), obj);
+  });
+}
+
+  function setKeyVisual(key, pressed) {
+    const obj = keyMap.get(key.toLowerCase());
+    if (obj) {
+      console.log(`Setting visual for key: ${key}, pressed: ${pressed}`);
+      if (pressed ) {
+        obj.classList.add("pressed");
+      }  
+      else {
+        obj.classList.remove("pressed");
+      }
+    }
+  }
 
 function update() {
 
@@ -523,12 +552,13 @@ function init() {
 
     camera = cameras[cameraIndex];
 
+    buildKeyMap();
+
     window.addEventListener("keydown", handleKeyPress);
 
     window.addEventListener("keyup", (event) => { 
-        if (movementKeys.includes(event.key.toLowerCase())) { 
-            keysPressed[event.key.toLowerCase()] = false;
-        } 
+      keysPressed[event.key.toLowerCase()] = false;
+      setKeyVisual(event.key.toLowerCase(), false);
     });
 
     window.addEventListener("resize", onResize);
@@ -551,15 +581,21 @@ function init() {
     axesHelpers.forEach((helper) => {
         helper.visible = helpersVisible;
     });
+
+    stats = new Stats();
+    stats.showPanel(0); //FPS
+    document.body.appendChild(stats.dom);
     
     animate();
 
 }
 
 function animate() {
+  stats.begin();
   requestAnimationFrame(animate);
   update();
   renderer.render(scene, camera);
+  stats.end();
 }
 
 init();
