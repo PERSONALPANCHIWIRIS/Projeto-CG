@@ -8,17 +8,93 @@
         background-color: #373737;
         overflow: hidden;
       }
+
+      .keyboard {
+        position: absolute;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        top: 85%;
+      }
+
+      .key {
+        width: 40px;
+        height: 40px;
+        background-color: #fffdd0;
+        color: #000000;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        font-family: Arial, sans-serif;
+        font-size: 16px;
+        border-radius: 4px;
+      }
+
+      .keyrow {
+        display: flex;
+        flex-direction: row;
+        gap: 2px;
+      }
+
+      .keyrow.movement_top_row {
+        margin-left: 50px;
+      }
+
+      .keyrow.movement_bottom_row {
+        margin-left: 60px;
+      }
+
+      .key.pressed {
+        width: 40px;
+        height: 40px;
+        background-color: #000000;
+        color: #fffdd0;
+      }
+
+      .key.hidden {
+        display: none;
+      }
+
     </style>
     <script type="importmap">
       {
         "imports": {
-          "three": "https://cdn.jsdelivr.net/npm/three@v0.176.0/build/three.module.js"
+          "three": "https://cdn.jsdelivr.net/npm/three@v0.176.0/build/three.module.js",
+          "stats.js": "https://cdn.jsdelivr.net/npm/stats.js@0.17.0/src/Stats.js",
+          "three/addons/libs/lil-gui.module.min.js": "https://cdn.jsdelivr.net/npm/lil-gui@0.19.1/dist/lil-gui.esm.js"
         }
       }
     </script>
     <script src="https://cdn.jsdelivr.net/npm/three@v0.176.0/examples/js/loaders/OBJLoader.js"></script>
     <script type="module" src="js/droneWatch.js"></script>
     <title>DroneWatch</title>
+
+     <div class="keyboard">
+      <div class="keyrow">
+        <div class="key">1</div>
+        <div class="key">2</div>
+        <div class="key">3</div>
+        <div class="key">4</div>
+        <div class="key">5</div>
+        <div class="key">6</div>
+        <div class="key">7</div>
+      </div>
+    <div class="keyrow movement_top_row">
+      <div class="key">Q</div>
+      <div class="key">W</div>
+      <div class="key">U</div>
+      <div class="key">I</div>
+      <div class="key">O</div>
+      <div class="key">H</div>
+    </div>
+    <div class="keyrow movement_bottom_row">
+      <div class="key">A</div>
+      <div class="key">S</div>
+      <div class="key">D</div>
+      <div class="key">J</div>
+      <div class="key">K</div>
+      <div class="key">L</div>
+    </div>
   </head>
 
   <body></body>

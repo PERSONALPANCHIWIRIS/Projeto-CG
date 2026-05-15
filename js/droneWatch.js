@@ -1,5 +1,7 @@
 import * as THREE from "three";
 import { OBJLoader } from "https://cdn.jsdelivr.net/npm/three@v0.176.0/examples/jsm/loaders/OBJLoader.js";
+import Stats from "stats.js";
+import { GUI } from "three/addons/libs/lil-gui.module.min.js";
 
 let camera, scene, renderer;
 
@@ -9,9 +11,10 @@ let drone, ballon, cube;
   let cameraHelpers = [];
   let cameraIndex = 0;
   let helpersVisible = false;
-  let ballonPositions = [[0, 0, -20], [-20, 0, -20], [-10, 20, -10], [5, -20, 5]];
+  let ballonPositions = [[20, 20, -20], [-20, 20, -20], [20, -20, -20], [-20, -20, 20]];
 
   let axesHelpers = [];
+  let camera6Offset = new THREE.Vector3(0, 5, 0); //Posição relativa à aresta superior do smartwatch
 
   let wireframeMode = false;
 
@@ -37,6 +40,10 @@ let drone, ballon, cube;
   let destroyedBallons = [];   
   const ANIMATION_DURATION = 60; 
 
+  let stats;
+
+  const keyMap = new Map();
+
 class RotorArm {
 
     constructor(x, y, z, rotation, hX, hY, hZ) {
@@ -46,11 +53,13 @@ class RotorArm {
         const armGeometry = new THREE.BoxGeometry(1, 1, 3.8);
         const armMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff });
         const rotorArm = new THREE.Mesh(armGeometry, armMaterial);
+        rotorArm.name = "droneArm";
         this.group.add(rotorArm);
     
         const boxGeometry = new THREE.TorusGeometry(2.5, 0.5, 8, 16);
         const boxMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff });
         const rotorBox = new THREE.Mesh(boxGeometry, boxMaterial);
+        rotorBox.name = "droneArm";
         rotorBox.rotation.x = Math.PI / 2;
         rotorBox.position.set(0, 0, 2);
         this.group.add(rotorBox);
@@ -58,6 +67,7 @@ class RotorArm {
         const rotorGeometry = new THREE.CylinderGeometry(0.5, 1, 0.5, 8);
         const rotorMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff });
         const rotor = new THREE.Mesh(rotorGeometry, rotorMaterial);
+        rotor.name = "droneArm";
         rotor.position.set(0, 0, 2);
         this.group.add(rotor);
 
@@ -71,6 +81,7 @@ class RotorArm {
         const bladeMaterial = new THREE.MeshBasicMaterial({ color: 0x000000 });
         const blade = new THREE.Mesh(bladeGeometry, bladeMaterial);
         blade.position.set(0, 0.625, 2);
+        blade.name = "blade";
         this.group.add(blade);
 
         this.collisionGeometry = new THREE.SphereGeometry(3, 8, 8);
@@ -106,12 +117,14 @@ class DroneBody {
         const bodyGeometry = new THREE.BoxGeometry(6.5, 2, 6.5);
         const bodyMaterial = new THREE.MeshBasicMaterial({ color: 0x000000 });
         const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+        body.name = "droneBody";
         body.position.set(0, 0.5, 0);
         this.group.add(body);
 
         const screenGeometry = new THREE.BoxGeometry(5, 2, 5);
         const screenMaterial = new THREE.MeshBasicMaterial({ color: 0x0000ff});
         const screen = new THREE.Mesh(screenGeometry, screenMaterial);
+        screen.name = "droneScreen";
         screen.position.set(0, 0.525, 0);
         this.group.add(screen);
 
@@ -120,15 +133,18 @@ class DroneBody {
 
         const rectangle1 = new THREE.Mesh(rectangleGeometry, rectangleMaterial);
         rectangle1.position.set(0, 0.5, 3.25);
+        rectangle1.name = "droneBody";
         this.group.add(rectangle1);
 
         const rectangle2 = new THREE.Mesh(rectangleGeometry, rectangleMaterial);
         rectangle2.position.set(0, 0.5, -3.25);
+        rectangle2.name = "droneBody";
         this.group.add(rectangle2);
 
         const buttonGeometry = new THREE.BoxGeometry(2.6, 2, 0.6);
         const buttonMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000});
         const button = new THREE.Mesh(buttonGeometry, buttonMaterial);
+        button.name = "droneButton";
         button.position.set(0, 0.525, 3);
         this.group.add(button);
 
@@ -207,6 +223,7 @@ class Ballon {
         const ballonMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 , transparent: true, opacity: 1});
         const ballon = new THREE.Mesh(ballonGeometry, ballonMaterial);
         ballon.position.y = 7;
+        ballon.name = "ballon";
         this.group.add(ballon);
 
         const knotGeometry = new THREE.CylinderGeometry(0.0, 0.5, 1, 8);
@@ -214,6 +231,7 @@ class Ballon {
         const knot = new THREE.Mesh(knotGeometry, knotMaterial);
         knot.scale.set(0.5, 0.5, 0.5);
         knot.position.y = 4.25;
+        knot.name = "ballon";
         this.group.add(knot);
 
         const stringGeometry = new THREE.CylinderGeometry(0.1, 0.1, 4, 8);
@@ -319,7 +337,16 @@ function createCameras() {
     cameraFixedPerspective.lookAt(scene.position);
     cameras.push(cameraFixedPerspective);
 
-    //Falta camara móvel 6
+    //6 - câmara móvel (perspectiva, na aresta superior do smartwatch)
+    const cameraMobile = new THREE.PerspectiveCamera(
+        75,
+        aspectRatio,
+        0.01,
+        1000
+    );
+    cameraMobile.position.set(camera6Offset.x, camera6Offset.y, camera6Offset.z);
+    cameraMobile.lookAt(0, 0, 5); // Apontar para diante, não perpendicular ao ecrã
+    cameras.push(cameraMobile);
 
     //Adicionar CameraHelpers para cada camara
     cameras.forEach((cam) => {
@@ -338,6 +365,7 @@ function handleKeyPress(event) {
 
   //Alternar câmaras
   if (key >= "1" && key <= "6") {
+    setKeyVisual(key, true);
     const newIndex = parseInt(key) - 1;
     if (newIndex < cameras.length) {
       cameraIndex = newIndex;
@@ -346,6 +374,7 @@ function handleKeyPress(event) {
 
   //'h' para mostrar/ocultar CameraHelpers
   if (key === "h") {
+    setKeyVisual('h', true);
     helpersVisible = !helpersVisible;
     cameraHelpers.forEach((helper) => {
       helper.visible = helpersVisible;
@@ -356,15 +385,18 @@ function handleKeyPress(event) {
   }
 
   if (key === "7") {
+    setKeyVisual('7', true);
     toggleWireframe();
   }
 
   if (key === "q") {
+    setKeyVisual('q', true);
     extended = !extended;
   }
 
   if (movementKeys.includes(key)) {
     keysPressed[key] = true;
+    setKeyVisual(key, true);
   }
 
 }
@@ -381,7 +413,8 @@ function detectCollisions() {
       ballon.collisionSphere.getWorldPosition(ballonPos);
       
       const distance = rotorPos.distanceTo(ballonPos);
-      const collisionDistance = 5.5; // 3 (rotor) + 2.5 (balloon)
+      const collisionDistance = (3 * droneWatchGroup.scale.x) + (2.5 * ballon.group.scale.x); //Ajustar para o tamanho do drone
+      console.log(`Distance: ${distance.toFixed(2)}, Collision Distance: ${collisionDistance.toFixed(2)}`);
       
       if (distance < collisionDistance) {
         boomAnimation = true;
@@ -415,10 +448,46 @@ function ballonDestroyAnimation(ballon) {
         
 }
 
+function buildKeyMap() {
+  document.querySelectorAll(".key").forEach((obj) => {
+    keyMap.set(obj.textContent.toLowerCase(), obj);
+  });
+}
+
+function setKeyVisual(key, pressed) {
+  const obj = keyMap.get(key.toLowerCase());
+  if (obj) {
+    console.log(`Setting visual for key: ${key}, pressed: ${pressed}`);
+    if (pressed ) {
+      obj.classList.add("pressed");
+    }  
+    else {
+      obj.classList.remove("pressed");
+    }
+  }
+}
+
 function update() {
 
   //Atualizar a camara
   camera = cameras[cameraIndex];
+  
+    //Atualizar câmara 6 (móvel) - seguir o smartwatch
+    const camera6 = cameras[5];
+    if (camera6) {
+        
+        const offsetWorld = camera6Offset.clone();
+        offsetWorld.applyQuaternion(droneWatchGroup.quaternion);
+        
+        camera6.position.copy(droneWatchGroup.position).add(offsetWorld);
+        
+        //Apontar para cima
+        const targetOffset = new THREE.Vector3(0, 30, 0);
+        targetOffset.applyQuaternion(droneWatchGroup.quaternion);
+        const targetWorld = droneWatchGroup.position.clone().add(targetOffset);
+        
+        camera6.lookAt(targetWorld);
+    }
 
   detectCollisions();
 
@@ -477,7 +546,7 @@ function update() {
     //Rotar hélices quando totalmente estendido
     if (progress > 0.99) {
       arm.group.children.forEach((child) => {
-        if (child.material && child.material.color.getHex() === 0x000000) { 
+        if (child.material && child.name === "blade") { 
           child.rotation.y += rotationSpeed;
         }
       });
@@ -510,6 +579,110 @@ function onResize() {
   });
 }
 
+function setUpGui() {
+  const guiState = {
+    stats: false,
+    HUDdisplay: true,
+    wireframe: false,
+    camera: 'Lateral',
+    scale: 1,
+    MovementSpeed: 0.2,
+    RotationSpeed: 0.2,
+    Body: '#000000',
+    Button: '#ff0000',
+    Screen: '#0000ff',
+    Arm: '#ffffff',
+    CollisionDisplay: false, 
+    BallonColor: '#ff0000'
+  };
+
+  const gui = new GUI();
+  gui.add(guiState, 'stats').name('FPS').onChange((value) => {
+    stats.dom.style.display = value ? 'block' : 'none';
+  });
+
+  gui.add(guiState, 'HUDdisplay').name('HUD Display').onChange((value) => {
+    const hudKeys = document.querySelectorAll('.key');
+    hudKeys.forEach(obj => {
+      if (value) {
+        obj.classList.remove('hidden');
+      } else {
+        obj.classList.add('hidden');
+      }
+    });
+  });
+
+  gui.add(guiState, 'wireframe').name('Wireframe Mode').onChange(toggleWireframe);
+
+  gui.add(guiState, 'camera', ['Lateral', 'Frontal', 'Top', 'Orthogonal', 'Perspective', 'Drone']).name('Camera View').onChange((value) => {
+    cameraIndex = ['Lateral', 'Frontal', 'Top', 'Orthogonal', 'Perspective', 'Drone'].indexOf(value);
+  });
+
+  const DroneControls = gui.addFolder('Drone Controls');
+  DroneControls.add(guiState, 'scale', 0.5, 2).name('Scale').onChange((value) => {
+    droneWatchGroup.scale.set(value, value, value);
+  });
+  DroneControls.add(guiState, 'MovementSpeed').name('Movement Speed').listen().onChange((value) => {
+    moveSpeed = value;
+  });
+  DroneControls.add(guiState, 'RotationSpeed').name('Rotation Speed').listen().onChange((value) => {
+    rotationSpeed = value;
+  });
+  const DroneColors = DroneControls.addFolder('Drone Colors');
+  DroneColors.addColor(guiState, 'Body').name('Body Color').onChange((value) => {
+    droneWatchGroup.traverse((child) => {
+      if (child.name === "droneBody") { 
+        child.material.color.set(value);
+      }
+    });
+  });
+  DroneColors.addColor(guiState, 'Button').name('Button Color').onChange((value) => {
+    droneWatchGroup.traverse((child) => {
+      if (child.name === "droneButton") {
+        child.material.color.set(value);
+      }
+    });
+  });
+  DroneColors.addColor(guiState, 'Screen').name('Screen Color').onChange((value) => {
+    droneWatchGroup.traverse((child) => {
+      if (child.name === "droneScreen") {
+        child.material.color.set(value);
+      }
+    });
+  });
+  DroneColors.addColor(guiState, 'Arm').name('Arm Color').onChange((value) => {
+    droneWatchGroup.traverse((child) => {
+      if (child.name === "droneArm") {
+        child.material.color.set(value);
+      }
+    });
+  });
+
+  const BallonControls = gui.addFolder('Ballon Controls');
+  BallonControls.add(guiState, 'CollisionDisplay').name('Show Collision Spheres').onChange((value) => {
+    activeBallons.forEach((ballon) => {
+      ballon.collisionSphere.material.opacity = value ? 0.5 : 0;
+    });
+    rotorArms.forEach((arm) => {
+      arm.collisionSphere.material.opacity = value ? 0.5 : 0;
+    });
+  });
+  BallonControls.addColor(guiState, 'BallonColor').name('Ballon Color').onChange((value) => {
+    activeBallons.forEach((ballon) => {
+      ballon.group.traverse((child) => {
+        if (child.name === "ballon") {
+          child.material.color.set(value);
+        }
+      });
+    });
+  });
+  BallonControls.add(guiState, 'scale', 0.5, 2).name('Scale').onChange((value) => {
+    activeBallons.forEach((ballon) => {
+      ballon.group.scale.set(value, value, value);
+    });
+  });
+}
+
 function init() {
     scene = new THREE.Scene();
     scene.background = new THREE.Color(0x373737); //Fundo cinzento escuro
@@ -523,12 +696,20 @@ function init() {
 
     camera = cameras[cameraIndex];
 
+    stats = new Stats();
+    stats.showPanel(0); //FPS
+    document.body.appendChild(stats.dom);
+    stats.dom.style.display = 'none';
+
+    buildKeyMap();
+
+    setUpGui();
+
     window.addEventListener("keydown", handleKeyPress);
 
     window.addEventListener("keyup", (event) => { 
-        if (movementKeys.includes(event.key.toLowerCase())) { 
-            keysPressed[event.key.toLowerCase()] = false;
-        } 
+      keysPressed[event.key.toLowerCase()] = false;
+      setKeyVisual(event.key.toLowerCase(), false);
     });
 
     window.addEventListener("resize", onResize);
@@ -542,8 +723,11 @@ function init() {
 
     for (let i = 0; i < 4; i++) {
         const [x, y, z] = ballonPositions[i];
+        const randomMultiplier1 = 0.5 + Math.random() * 0.5;
+        const randomMultiplier2 = 0.5 + Math.random() * 0.5;
+        const randomMultiplier3 = 0.5 + Math.random() * 0.5;
         const newBallon = new Ballon();
-        newBallon.group.position.set(x, y, z);
+        newBallon.group.position.set(x * randomMultiplier1, y * randomMultiplier2, z * randomMultiplier3);
         activeBallons.push(newBallon);
         scene.add(newBallon.group);
     }
@@ -557,9 +741,11 @@ function init() {
 }
 
 function animate() {
+  stats.begin();
   requestAnimationFrame(animate);
   update();
   renderer.render(scene, camera);
+  stats.end();
 }
 
 init();
