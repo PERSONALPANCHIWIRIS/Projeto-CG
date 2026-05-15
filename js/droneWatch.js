@@ -11,9 +11,10 @@ let drone, ballon, cube;
   let cameraHelpers = [];
   let cameraIndex = 0;
   let helpersVisible = false;
-  let ballonPositions = [[0, 0, -20], [-20, 0, -20], [-10, 20, -10], [5, -20, 5]];
+  let ballonPositions = [[20, 20, -20], [-20, 20, -20], [20, -20, -20], [-20, -20, 20]];
 
   let axesHelpers = [];
+  let camera6Offset = new THREE.Vector3(0, 5, 0); //Posição relativa à aresta superior do smartwatch
 
   let wireframeMode = false;
 
@@ -336,7 +337,16 @@ function createCameras() {
     cameraFixedPerspective.lookAt(scene.position);
     cameras.push(cameraFixedPerspective);
 
-    //Falta camara móvel 6
+    //6 - câmara móvel (perspectiva, na aresta superior do smartwatch)
+    const cameraMobile = new THREE.PerspectiveCamera(
+        75,
+        aspectRatio,
+        0.01,
+        1000
+    );
+    cameraMobile.position.set(camera6Offset.x, camera6Offset.y, camera6Offset.z);
+    cameraMobile.lookAt(0, 0, 5); // Apontar para diante, não perpendicular ao ecrã
+    cameras.push(cameraMobile);
 
     //Adicionar CameraHelpers para cada camara
     cameras.forEach((cam) => {
@@ -461,6 +471,23 @@ function update() {
 
   //Atualizar a camara
   camera = cameras[cameraIndex];
+  
+    //Atualizar câmara 6 (móvel) - seguir o smartwatch
+    const camera6 = cameras[5];
+    if (camera6) {
+        
+        const offsetWorld = camera6Offset.clone();
+        offsetWorld.applyQuaternion(droneWatchGroup.quaternion);
+        
+        camera6.position.copy(droneWatchGroup.position).add(offsetWorld);
+        
+        //Apontar para cima
+        const targetOffset = new THREE.Vector3(0, 30, 0);
+        targetOffset.applyQuaternion(droneWatchGroup.quaternion);
+        const targetWorld = droneWatchGroup.position.clone().add(targetOffset);
+        
+        camera6.lookAt(targetWorld);
+    }
 
   detectCollisions();
 
@@ -552,6 +579,110 @@ function onResize() {
   });
 }
 
+function setUpGui() {
+  const guiState = {
+    stats: false,
+    HUDdisplay: true,
+    wireframe: false,
+    camera: 'Lateral',
+    scale: 1,
+    MovementSpeed: 0.2,
+    RotationSpeed: 0.2,
+    Body: '#000000',
+    Button: '#ff0000',
+    Screen: '#0000ff',
+    Arm: '#ffffff',
+    CollisionDisplay: false, 
+    BallonColor: '#ff0000'
+  };
+
+  const gui = new GUI();
+  gui.add(guiState, 'stats').name('FPS').onChange((value) => {
+    stats.dom.style.display = value ? 'block' : 'none';
+  });
+
+  gui.add(guiState, 'HUDdisplay').name('HUD Display').onChange((value) => {
+    const hudKeys = document.querySelectorAll('.key');
+    hudKeys.forEach(obj => {
+      if (value) {
+        obj.classList.remove('hidden');
+      } else {
+        obj.classList.add('hidden');
+      }
+    });
+  });
+
+  gui.add(guiState, 'wireframe').name('Wireframe Mode').onChange(toggleWireframe);
+
+  gui.add(guiState, 'camera', ['Lateral', 'Frontal', 'Top', 'Orthogonal', 'Perspective', 'Drone']).name('Camera View').onChange((value) => {
+    cameraIndex = ['Lateral', 'Frontal', 'Top', 'Orthogonal', 'Perspective', 'Drone'].indexOf(value);
+  });
+
+  const DroneControls = gui.addFolder('Drone Controls');
+  DroneControls.add(guiState, 'scale', 0.5, 2).name('Scale').onChange((value) => {
+    droneWatchGroup.scale.set(value, value, value);
+  });
+  DroneControls.add(guiState, 'MovementSpeed').name('Movement Speed').listen().onChange((value) => {
+    moveSpeed = value;
+  });
+  DroneControls.add(guiState, 'RotationSpeed').name('Rotation Speed').listen().onChange((value) => {
+    rotationSpeed = value;
+  });
+  const DroneColors = DroneControls.addFolder('Drone Colors');
+  DroneColors.addColor(guiState, 'Body').name('Body Color').onChange((value) => {
+    droneWatchGroup.traverse((child) => {
+      if (child.name === "droneBody") { 
+        child.material.color.set(value);
+      }
+    });
+  });
+  DroneColors.addColor(guiState, 'Button').name('Button Color').onChange((value) => {
+    droneWatchGroup.traverse((child) => {
+      if (child.name === "droneButton") {
+        child.material.color.set(value);
+      }
+    });
+  });
+  DroneColors.addColor(guiState, 'Screen').name('Screen Color').onChange((value) => {
+    droneWatchGroup.traverse((child) => {
+      if (child.name === "droneScreen") {
+        child.material.color.set(value);
+      }
+    });
+  });
+  DroneColors.addColor(guiState, 'Arm').name('Arm Color').onChange((value) => {
+    droneWatchGroup.traverse((child) => {
+      if (child.name === "droneArm") {
+        child.material.color.set(value);
+      }
+    });
+  });
+
+  const BallonControls = gui.addFolder('Ballon Controls');
+  BallonControls.add(guiState, 'CollisionDisplay').name('Show Collision Spheres').onChange((value) => {
+    activeBallons.forEach((ballon) => {
+      ballon.collisionSphere.material.opacity = value ? 0.5 : 0;
+    });
+    rotorArms.forEach((arm) => {
+      arm.collisionSphere.material.opacity = value ? 0.5 : 0;
+    });
+  });
+  BallonControls.addColor(guiState, 'BallonColor').name('Ballon Color').onChange((value) => {
+    activeBallons.forEach((ballon) => {
+      ballon.group.traverse((child) => {
+        if (child.name === "ballon") {
+          child.material.color.set(value);
+        }
+      });
+    });
+  });
+  BallonControls.add(guiState, 'scale', 0.5, 2).name('Scale').onChange((value) => {
+    activeBallons.forEach((ballon) => {
+      ballon.group.scale.set(value, value, value);
+    });
+  });
+}
+
 function init() {
     scene = new THREE.Scene();
     scene.background = new THREE.Color(0x373737); //Fundo cinzento escuro
@@ -572,108 +703,7 @@ function init() {
 
     buildKeyMap();
 
-    const guiState = {
-      stats: false,
-      HUDdisplay: true,
-      wireframe: false,
-      camera: 'Lateral',
-      scale: 1,
-      MovementSpeed: 0.2,
-      RotationSpeed: 0.2,
-      Body: '#000000',
-      Button: '#ff0000',
-      Screen: '#0000ff',
-      Arm: '#ffffff',
-      CollisionDisplay: false, 
-      BallonColor: '#ff0000'
-    };
-
-    const gui = new GUI();
-    gui.add(guiState, 'stats').name('FPS').onChange((value) => {
-      stats.dom.style.display = value ? 'block' : 'none';
-    });
-
-    gui.add(guiState, 'HUDdisplay').name('HUD Display').onChange((value) => {
-      const hudKeys = document.querySelectorAll('.key');
-      hudKeys.forEach(obj => {
-        if (value) {
-          obj.classList.remove('hidden');
-        } else {
-          obj.classList.add('hidden');
-        }
-      });
-    });
-
-    gui.add(guiState, 'wireframe').name('Wireframe Mode').onChange(toggleWireframe);
-
-    gui.add(guiState, 'camera', ['Lateral', 'Frontal', 'Top', 'Orthogonal', 'Perspective', 'Drone']).name('Camera View').onChange((value) => {
-      cameraIndex = ['Lateral', 'Frontal', 'Top', 'Orthogonal', 'Perspective', 'Drone'].indexOf(value);
-    });
-
-    const DroneControls = gui.addFolder('Drone Controls');
-    DroneControls.add(guiState, 'scale', 0.5, 2).name('Scale').onChange((value) => {
-      droneWatchGroup.scale.set(value, value, value);
-    });
-    DroneControls.add(guiState, 'MovementSpeed').name('Movement Speed').listen().onChange((value) => {
-      moveSpeed = value;
-    });
-    DroneControls.add(guiState, 'RotationSpeed').name('Rotation Speed').listen().onChange((value) => {
-      rotationSpeed = value;
-    });
-    const DroneColors = DroneControls.addFolder('Drone Colors');
-    DroneColors.addColor(guiState, 'Body').name('Body Color').onChange((value) => {
-      droneWatchGroup.traverse((child) => {
-        if (child.name === "droneBody") { 
-          child.material.color.set(value);
-        }
-      });
-    });
-    DroneColors.addColor(guiState, 'Button').name('Button Color').onChange((value) => {
-      droneWatchGroup.traverse((child) => {
-        if (child.name === "droneButton") {
-          child.material.color.set(value);
-        }
-      });
-    });
-    DroneColors.addColor(guiState, 'Screen').name('Screen Color').onChange((value) => {
-      droneWatchGroup.traverse((child) => {
-        if (child.name === "droneScreen") {
-          child.material.color.set(value);
-        }
-      });
-    });
-    DroneColors.addColor(guiState, 'Arm').name('Arm Color').onChange((value) => {
-      droneWatchGroup.traverse((child) => {
-        if (child.name === "droneArm") {
-          child.material.color.set(value);
-        }
-      });
-    });
-
-    const BallonControls = gui.addFolder('Ballon Controls');
-    BallonControls.add(guiState, 'CollisionDisplay').name('Show Collision Spheres').onChange((value) => {
-      activeBallons.forEach((ballon) => {
-        ballon.collisionSphere.material.opacity = value ? 0.5 : 0;
-      });
-      rotorArms.forEach((arm) => {
-        arm.collisionSphere.material.opacity = value ? 0.5 : 0;
-      });
-    });
-    BallonControls.addColor(guiState, 'BallonColor').name('Ballon Color').onChange((value) => {
-      activeBallons.forEach((ballon) => {
-        ballon.group.traverse((child) => {
-          if (child.name === "ballon") {
-            child.material.color.set(value);
-          }
-        });
-      });
-    });
-    BallonControls.add(guiState, 'scale', 0.5, 2).name('Scale').onChange((value) => {
-      activeBallons.forEach((ballon) => {
-        ballon.group.scale.set(value, value, value);
-      });
-    });
-
+    setUpGui();
 
     window.addEventListener("keydown", handleKeyPress);
 
@@ -693,8 +723,11 @@ function init() {
 
     for (let i = 0; i < 4; i++) {
         const [x, y, z] = ballonPositions[i];
+        const randomMultiplier1 = 0.5 + Math.random() * 0.5;
+        const randomMultiplier2 = 0.5 + Math.random() * 0.5;
+        const randomMultiplier3 = 0.5 + Math.random() * 0.5;
         const newBallon = new Ballon();
-        newBallon.group.position.set(x, y, z);
+        newBallon.group.position.set(x * randomMultiplier1, y * randomMultiplier2, z * randomMultiplier3);
         activeBallons.push(newBallon);
         scene.add(newBallon.group);
     }
