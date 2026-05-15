@@ -1,0 +1,30 @@
+# Dependências Node.js
+node_modules/
+package-lock.json
+
+# Arquivos de ambiente
+.env
+.env.local
+.env.*.local
+
+# IDE e Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Arquivos temporários
+*.log
+*.tmp
+.cache/
+
+# Arquivos de sistema
+.DS_Store
+Thumbs.db
+desktop.ini
+
+
+export_dronewatch.mjs
